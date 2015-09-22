@@ -11,9 +11,11 @@
 
   xbmc.on 'connection:open',                        -> 
     console.log 'Connection is open'
- # xbmc.on 'connection:data', (data)                 -> console.log 'Received data:',         data
- # xbmc.on 'connection:notification', (notification) -> console.log 'Received notification:', notification
-#    xbmc.player.mixin xbmc
+ # xbmc.on 'connection:data', (data)                 -> 
+ # console.log 'Received data:',    data
+ # xbmc.on 'connection:notification', (notification) -> 
+ # console.log 'Received notification:', notification
+ #    xbmc.player.mixin xbmc
   setTimeout ( ->
     console.log 'PlayPause'
     xbmc.player.playPause().then(->
