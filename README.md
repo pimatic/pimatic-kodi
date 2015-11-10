@@ -1,9 +1,9 @@
 Pimatic-Kodi plugin
 =======================
 
-Pimatic plugin for controlling Kodi (XBMC) Media player
+Pimatic plugin for controlling Kodi (XBMC) Media player.
 
-###device config example:
+### Device Config Example
 
 ```json
 {
@@ -15,7 +15,7 @@ Pimatic plugin for controlling Kodi (XBMC) Media player
 }
 ```
 
-###device rules examples:
+### Device Rules Examples
 
 <b>Play music</b><br>
 if smartphone is present then play Kodi
@@ -39,11 +39,11 @@ if Kodi is not playing then switch speakers off and dim lights to 100<br>
 
 if Kodi is playing and kodi.type != "song" then dim lights to 30<br/>To make sure lights only dim if you are watching a movies/series.
 
-###Custom commands
+### Custom Commands
 You can add custom Player.Open commands to the plugin. Player.Open can execute almost anything.
 From opening Youtube movies, Soundcloud streams to simple opening a file.
 
-example configuration for a custom command:
+Example configuration for a custom command:
 ```json
 {
   "plugin": "kodi",
@@ -60,19 +60,19 @@ example configuration for a custom command:
 if yourrule then execute Open Command nyan on Kodi
 
 
-This is just one of the example's you can do with the Player.Open command to Kodi,
+This is just one of the examples you can do with the Player.Open command to Kodi,
 This can also execute scripts in Kodi. 
 
 You only need to find out what the script/plugin path is, and what parameter to give.
 
 
-###Note's
-Big thanks to the code of Pimatic
-i used the pimatic-mpd plugin as base for this project.
-https://github.com/pimatic/pimatic-mpd
+### Note's
+Big thanks to the code of Pimatic.
+I used the [pimatic-mpd](https://github.com/pimatic/pimatic-mpd) plugin as a base for this project.
 
 
-###TO DO
+
+### TO DO
 - Add volume controls
 - create new device (template)
 - better support for multimedia (now focused @ music)
