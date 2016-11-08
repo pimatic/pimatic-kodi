@@ -72,6 +72,12 @@ Example rule:
 ```
 when: doorbell reports present
 then: show Toast "Doorbell" on kodiplayer and pause kodiplayer
+
+when: ...
+then: show Toast "Some Notification" with icon "error" on kodiplayer
+
+when: ...
+then: show Toast "You have been informated" with icon "http://url.to/some_icon.png" on kodiplayer
 ```
 
 
