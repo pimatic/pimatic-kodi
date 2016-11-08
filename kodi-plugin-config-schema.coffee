@@ -12,6 +12,10 @@ module.exports = {
       description: "The port for Kodi/XMBC RPC (Default: 9090)"
       type: "integer"
       default: 9090
+    debug:
+      description: "Log information for debugging, including received messages"
+      type: "boolean"
+      default: true
     customOpenCommands:
       description: "Custom Player.Open commands"
       type: "array"
