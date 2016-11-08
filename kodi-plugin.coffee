@@ -159,7 +159,7 @@ module.exports = (env) ->
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
             connection.Player.Stop({"playerid":players[0].playerid})
-    previous: () -
+    previous: () ->
       @_connectionProvider.getConnection().then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
