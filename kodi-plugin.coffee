@@ -21,6 +21,8 @@ module.exports = (env) ->
 
   KodiApi = require 'xbmc-ws'
 
+  milliseconds = require '../pimatic/lib/milliseconds'
+
   VERBOSE = false
 
   M = env.matcher
@@ -182,11 +184,14 @@ module.exports = (env) ->
           item: { file : command}
           })
 
-    showToast: (message, icon) =>
+    showToast: (message, icon, duration) =>
       opts = {title: 'Pimatic', 'message': message}
 
       if icon?
         opts['image'] = icon
+
+      if duration?
+        opts['displaytime'] = parseInt(duration, 10)
 
       @_connectionProvider.getConnection().then (connection) =>
         connection.GUI.ShowNotification(opts)
@@ -374,6 +379,8 @@ module.exports = (env) ->
       match = null
       tokens = null
       iconTokens = []
+      durationTokens = null
+      durationUnit = null
 
       onDeviceMatch = ( (m, d) -> device = d; match = m.getFullMatch() )
 
@@ -386,6 +393,13 @@ module.exports = (env) ->
               ((m) => m.matchStringWithVars( (m, t) -> iconTokens = t ))
             ])
         )
+        .optional( (m) =>
+          m.match(' for ')
+            .matchTimeDurationExpression( (m, {tokens, unit}) =>
+              durationTokens = tokens
+              durationUnit = unit
+            )
+        )
         .match(' on ')
         .matchDevice(kodiPlayers, onDeviceMatch)
 
@@ -395,29 +409,37 @@ module.exports = (env) ->
         return {
           token: match
           nextInput: input.substring(match.length)
-          actionHandler: new KodiShowToastActionHandler(@framework, device, @config, tokens, iconTokens)
+          actionHandler: new KodiShowToastActionHandler(@framework, device, @config, tokens, iconTokens, durationTokens, durationUnit)
         }
       else
         return null
 
   class KodiShowToastActionHandler extends env.actions.ActionHandler
-    constructor: (@framework,@device,@config,@messageTokens,@iconTokens) -> # nop
+    constructor: (@framework,@device,@config,@messageTokens,@iconTokens,@durationTokens,@durationUnit) -> # nop
 
     executeAction: (simulate) =>
-      toastPromise = (message, icon) =>
+      toastPromise = (message, icon, duration) =>
         if simulate
-          return Promise.resolve __("would show toast %s with icon %s", message, icon)
+          return Promise.resolve __("would show toast %s with icon %s for %s", message, icon, duration)
         else
-          env.logger.debug "Sending toast %s with icon %s on %s" % message, icon, @device
-          return @device.showToast(message, icon).then( => __("show toast %s with icon %s on %s", message, icon, @device.name))
+          env.logger.debug "Sending toast %s with icon %s for %s on %s" % message, icon, duration, @device
+          return @device.showToast(message, icon, duration).then( => __("show toast %s with icon %s for %s on %s", message, icon, duration, @device.name))
 
-      @framework.variableManager.evaluateStringExpression(@messageTokens).then( (message) =>
-        if @iconTokens is null or @iconTokens.length == 0
-          return toastPromise(message, null)
-        else
-          @framework.variableManager.evaluateStringExpression(@iconTokens).then( (icon) =>
-            return toastPromise(message, icon)
-          )
+      timeLookup = Promise.resolve(null)
+      if @durationTokens? and @durationUnit?
+        timeLookup = Promise.resolve(@framework.variableManager.evaluateStringExpression(@durationTokens).then( (time) =>
+          return milliseconds.parse "#{time} #{@durationUnit}"
+        ))
+
+      timeLookup.then( (time) =>
+        @framework.variableManager.evaluateStringExpression(@messageTokens).then( (message) =>
+          if @iconTokens is null or @iconTokens.length == 0
+            return toastPromise(message, null, time)
+          else
+            @framework.variableManager.evaluateStringExpression(@iconTokens).then( (icon) =>
+              return toastPromise(message, icon, time)
+            )
+        )
       )
 
   # Create a instance of Kodiplugin
