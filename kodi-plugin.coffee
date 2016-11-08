@@ -179,12 +179,14 @@ module.exports = (env) ->
           item: { file : command}
           })
 
-    showToast: (message) =>
+    showToast: (message, icon) =>
+      opts = {title: 'Pimatic', 'message': message}
+
+      if icon?
+        opts['image'] = icon
+
       @_connectionProvider.getConnection().then (connection) =>
-        connection.GUI.ShowNotification({
-          title: 'Pimatic',
-          message: message
-        })
+        connection.GUI.ShowNotification(opts)
 
     _updateInfo: -> Promise.all([@_updatePlayer()])
 
@@ -368,13 +370,19 @@ module.exports = (env) ->
       device = null
       match = null
       tokens = null
+      iconTokens = []
 
       onDeviceMatch = ( (m, d) -> device = d; match = m.getFullMatch() )
 
       m = M(input, context)
         .match('show Toast ')
         .matchStringWithVars( (m, t) -> tokens = t )
-        #.match('test ', (m,s) -> state = s.trim();)
+        .optional( (m) =>
+          m.match(' with icon ')
+            .or([ ((m) => m.match(['"info"', '"warning"', '"error"'], (m, t) -> iconTokens = [t])),
+              ((m) => m.matchStringWithVars( (m, t) -> iconTokens = t ))
+            ])
+        )
         .match(' on ')
         .matchDevice(kodiPlayers, onDeviceMatch)
 
@@ -384,21 +392,29 @@ module.exports = (env) ->
         return {
           token: match
           nextInput: input.substring(match.length)
-          actionHandler: new KodiShowToastActionHandler(@framework, device, @config, tokens)
+          actionHandler: new KodiShowToastActionHandler(@framework, device, @config, tokens, iconTokens)
         }
       else
         return null
 
   class KodiShowToastActionHandler extends env.actions.ActionHandler
-    constructor: (@framework,@device,@config,@messageTokens) -> # nop
+    constructor: (@framework,@device,@config,@messageTokens,@iconTokens) -> # nop
 
     executeAction: (simulate) =>
-      @framework.variableManager.evaluateStringExpression(@messageTokens).then( (str) =>
+      toastPromise = (message, icon) =>
         if simulate
-          return Promise.resolve __("would show toast %s", str)
+          return Promise.resolve __("would show toast %s with icon %s", message, icon)
         else
-          env.logger.debug "Sending toast %s on %s" % str, @device
-          return @device.showToast(str).then( => __("show toast %s on %s", str, @device.name))
+          env.logger.debug "Sending toast %s with icon %s on %s" % message, icon, @device
+          return @device.showToast(message, icon).then( => __("show toast %s with icon %s on %s", message, icon, @device.name))
+
+      @framework.variableManager.evaluateStringExpression(@messageTokens).then( (message) =>
+        if @iconTokens is null or @iconTokens.length == 0
+          return toastPromise(message, null)
+        else
+          @framework.variableManager.evaluateStringExpression(@iconTokens).then( (icon) =>
+            return toastPromise(message, icon)
+          )
       )
 
   # Create a instance of Kodiplugin
