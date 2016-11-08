@@ -143,6 +143,9 @@ module.exports = (env) ->
 
       super()
 
+    destroy: () ->
+      super()
+
     getType: () -> Promise.resolve(@_type)
     play: () ->
       @_connectionProvider.getConnection().then (connection) =>
