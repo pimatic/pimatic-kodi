@@ -65,6 +65,15 @@ This can also execute scripts in Kodi.
 
 You only need to find out what the script/plugin path is, and what parameter to give.
 
+### Show Toasts
+You can use GUI.ShowNotification to show toast messages on a Kodi player.
+
+Example rule:
+```
+when: doorbell reports present
+then: show Toast "Doorbell" on kodiplayer and pause kodiplayer
+```
+
 
 ### Note's
 Big thanks to the code of Pimatic.
