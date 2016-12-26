@@ -153,12 +153,12 @@ module.exports = (env) ->
       @_connectionProvider.getConnection().then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
-            connection.Player.PlayPause({"playerid":players[0].playerid})
+            connection.Player.PlayPause({"playerid":players[0].playerid, "play":true})
     pause: () ->
       @_connectionProvider.getConnection().then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
-            connection.Player.PlayPause({"playerid":players[0].playerid})
+            connection.Player.PlayPause({"playerid":players[0].playerid, "play":false})
     stop: () ->
       @_connectionProvider.getConnection().then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
