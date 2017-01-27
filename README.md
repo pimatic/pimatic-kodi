@@ -1,7 +1,15 @@
 Pimatic-Kodi plugin
 =======================
 
-Pimatic plugin for controlling Kodi (XBMC) Media player.
+### Kodi Setup
+
+To be able to use this plugin, the JSON-RPC remote control service via TCP (port 9090 by default) must be enabled. This 
+ can be enabled by navigating to Settings / Services / Control and turning on the option "Allow remote control from 
+ applications on other systems". Note, if pimatic is run on the kodi host and the option "Allow remote control from 
+ applications on this system" is used instead, this may cause an error if the pimatic KodiPlayer device is setup 
+ using the IPv4 loop-back address or "localhost". This is, as kodi only listens on the IPv6 loop-back address in 
+ this mode. On Raspbian you can try to use hostname "ip6-localhost or use "Allow remote control from applications 
+ on other systems" instead.
 
 ### Device Config Example
 
