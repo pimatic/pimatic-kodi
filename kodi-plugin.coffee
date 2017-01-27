@@ -19,7 +19,7 @@ module.exports = (env) ->
   # Require the XBMC(kodi) API
   # {TCPConnection, XbmcApi} = require 'xbmc'
 
-  KodiApi = require 'xbmc-ws'
+  KodiApi = require 'kodi-ws'
 
   milliseconds = require '../pimatic/lib/milliseconds'
 
@@ -227,19 +227,18 @@ module.exports = (env) ->
       @kodi.input.ExecuteAction action
 
     _parseItem: (itm) ->
-      if itm?
-        artist = itm.artist?[0] ? itm.artist
-        title = itm.title
-        type = itm.type ? ''
-        @_setType type
-        env.logger.debug title
+#      if itm?
+#        artist = itm.artist?[0] ? itm.artist
+#        title = itm.title
+#        type = itm.type ? ''
+#        @_setType type
+#        env.logger.debug title
+#
+#        if type == 'song' || (title? && artist?)
+#          @_setCurrentTitle(if title? then title else "")
+#          @_setCurrentArtist(if artist? then artist else "")
 
-        if type == 'song' || (title? && artist?)
-          @_setCurrentTitle(if title? then title else "")
-          @_setCurrentArtist(if artist? then artist else "")
-        #else
-
-        @_updateInfo()
+      @_updateInfo()
 
   class KodiExecuteOpenActionProvider extends env.actions.ActionProvider
     constructor: (@framework,@config) ->
