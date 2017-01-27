@@ -104,7 +104,7 @@ module.exports = (env) ->
       @name = @config.name
       @id = @config.id
 
-      @_state = 'stopped'
+      @_state = 'stop'
 
       @actions = _.cloneDeep @actions
       @attributes =  _.cloneDeep @attributes
@@ -122,12 +122,12 @@ module.exports = (env) ->
         @_connectionProvider.getConnection().then (connection) =>
           connection.Player.OnPause (data) =>
             env.logger.debug 'Kodi Paused'
-            @_setState 'paused'
+            @_setState 'pause'
             return
 
           connection.Player.OnStop =>
             env.logger.debug 'Kodi Paused'
-            @_setState 'stopped'
+            @_setState 'stop'
             @_setCurrentTitle ''
             @_setCurrentArtist ''
             return
@@ -136,7 +136,7 @@ module.exports = (env) ->
             if data?.data?.item?
               @_parseItem(data.data.item)
             env.logger.debug 'Kodi Playing'
-            @_setState 'playing'
+            @_setState 'play'
             return
       @_updateInfo()
       setInterval =>
@@ -153,12 +153,12 @@ module.exports = (env) ->
       @_connectionProvider.getConnection().then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
-            connection.Player.PlayPause({"playerid":players[0].playerid})
+            connection.Player.PlayPause({"playerid":players[0].playerid, "play":true})
     pause: () ->
       @_connectionProvider.getConnection().then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
-            connection.Player.PlayPause({"playerid":players[0].playerid})
+            connection.Player.PlayPause({"playerid":players[0].playerid, "play":false})
     stop: () ->
       @_connectionProvider.getConnection().then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
