@@ -139,13 +139,14 @@ module.exports = (env) ->
             @_setState 'play'
             return
       @_updateInfo()
-      setInterval =>
+      @updateIntervalTimerId = setInterval =>
         @_updateInfo()
       , 60000
 
       super()
 
     destroy: () ->
+      clearInterval @updateIntervalTimerId if @updateIntervalTimerId?
       super()
 
     getType: () -> Promise.resolve(@_type)
