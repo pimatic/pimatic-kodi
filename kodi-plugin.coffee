@@ -293,7 +293,7 @@ module.exports = (env) ->
             return Promise.resolve __("would execute %s", command.command)
       else
         for command in @config.customOpenCommands
-          env.logger.debug "checking for: #{command.name} == #{@name}"
+          env.logger.debug "checking for (1): #{command.name} == #{@name}"
           if command.name is @name
             return @device.executeOpenCommand(
               command.command).then( => __("executed %s", @device.name)
@@ -319,7 +319,9 @@ module.exports = (env) ->
                 context?.addError(""""#{input.trim()}" is ambiguous.""")
                 return
               device = d
-              state = s.trim() # is one of  'playing', 'stopped', 'paused', 'not playing'
+              mapping = {'playing': 'play', 'stopped': 'stop', 'paused': 'pause', 'not playing': 'not play'}
+              state = mapping[s.trim()] # is one of  'playing', 'stopped', 'paused', 'not playing'
+
               match = m.getFullMatch()
             )
       )
@@ -342,11 +344,12 @@ module.exports = (env) ->
 
     setup: ->
       @playingListener = (p) =>
-        env.logger.debug "checking for: #{@state} == #{p}"
+        env.logger.debug "checking for (2): #{@state} == #{p}"
+
         if (@state.trim() is p.trim())
           @emit 'change', (@state.trim() is p.trim())
-        else if @state is "not playing" and (p.trim() isnt "playing")
-          @emit 'change', (p.trim() isnt "playing")
+        else if @state is "not play" and (p.trim() isnt "play")
+          @emit 'change', (p.trim() isnt "play")
       @device.on 'state', @playingListener
       super()
     getValue: ->
@@ -354,8 +357,8 @@ module.exports = (env) ->
         (p) => #(if (@state.trim() is p.trim()) then not p else p)
           if (@state.trim() is p.trim())
             return (@state.trim() is p.trim())
-          else if @state is "not playing" and (p.trim() isnt "playing")
-            return (p.trim() isnt "playing")
+          else if @state is "not play" and (p.trim() isnt "play")
+            return (p.trim() isnt "play")
       )
     destroy: ->
       @device.removeListener "state", @playingListener
