@@ -9,39 +9,22 @@ module.exports = (env) ->
   # To require modules that are included in pimatic use `env.require`. For available packages take
   # a look at the dependencies section in pimatics package.json
 
-  # Require the  bluebird promise library
-  Promise = env.require 'bluebird'
-
-  # Require the [cassert library](https://github.com/rhoot/cassert).
-  assert = env.require 'cassert'
   EventEmitter = require('events').EventEmitter
-
-  # Require the XBMC(kodi) API
-  # {TCPConnection, XbmcApi} = require 'xbmc'
-
-  KodiApi = require 'kodi-ws'
-
-  milliseconds = require '../pimatic/lib/milliseconds'
-
-  VERBOSE = false
-
+  util = require 'util'
+  Promise = env.require 'bluebird'
+  assert = env.require 'cassert'
   M = env.matcher
   _ = env.require('lodash')
+  milliseconds = require '../pimatic/lib/milliseconds'
+  commons = require('pimatic-plugin-commons')(env)
+  KodiApi = require 'kodi-ws'
 
-#    silent: true      # comment out for debug!
-
-  # ###KodiPlugin class
   class KodiPlugin extends env.plugins.Plugin
 
-    # #####params:
-    #  * `app` is the [express] instance the framework is using.
-    #  * `framework` the framework itself
-    #  * `config` the properties the user specified as config for your plugin in the `plugins`
-    #     section of the config.json file
-    #
-    #
     init: (app, @framework, @config) =>
-      env.logger.info("Kodi plugin started")
+      @debug = @config.debug ? false
+      @base = commons.base @, 'KodiPlugin'
+      @base.debug("Kodi plugin started")
       deviceConfigDef = require("./device-config-schema")
 
       @framework.deviceManager.registerDeviceClass("KodiPlayer", {
@@ -57,6 +40,13 @@ module.exports = (env) ->
       )
       @framework.ruleManager.addPredicateProvider(new PlayingPredicateProvider(@framework))
 
+    prepareConfig: (config) ->
+      base = commons.base @, 'KodiPlugin'
+      ['host', 'port'].forEach (key) ->
+        if config[key]?
+          base.info "Removing obsolete plugin configuration property: #{key}"
+          delete config[key]
+
   class ConnectionProvider extends EventEmitter
     connection : null
     connected : false
@@ -65,6 +55,8 @@ module.exports = (env) ->
     _emitter : null
 
     constructor: (host,port) ->
+      @debug = kodiPlugin.config.debug ? false
+      @base = commons.base @, "ConnectionProvider"
       @_host = host
       @_port = port
 
@@ -74,7 +66,7 @@ module.exports = (env) ->
           resolve @connection
         else
           # make a new connection
-          KodiApi(@_host,@_port).then((newConnection) =>
+          KodiApi(@_host, @_port).then((newConnection) =>
             @connected = true
             @connection = newConnection
             @emit 'newConnection'
@@ -89,8 +81,8 @@ module.exports = (env) ->
             )
             resolve @connection
           ).catch( (error) =>
-            env.logger.debug 'connection rejected'
-            env.logger.debug error
+            @base.debug 'connection rejected', error
+            reject error
           )
       )
 
@@ -98,11 +90,12 @@ module.exports = (env) ->
     _type: ""
     _connectionProvider : null
 
-    kodi : null
-
     constructor: (@config) ->
       @name = @config.name
       @id = @config.id
+      @debug = kodiPlugin.config.debug ? false
+      @base = commons.base @, @config.class
+      @interval = 60000
 
       @_state = 'stop'
 
@@ -119,71 +112,98 @@ module.exports = (env) ->
       @_connectionProvider = new ConnectionProvider(@config.host, @config.port)
 
       @_connectionProvider.on 'newConnection', =>
-        @_connectionProvider.getConnection().then (connection) =>
+        @_connectionProvider.getConnection()
+        .then (connection) =>
           connection.Player.OnPause (data) =>
-            env.logger.debug 'Kodi Paused'
+            @base.debug 'Kodi Paused'
             @_setState 'pause'
             return
 
           connection.Player.OnStop =>
-            env.logger.debug 'Kodi Paused'
+            @base.debug 'Kodi Stopped'
             @_setState 'stop'
             @_setCurrentTitle ''
             @_setCurrentArtist ''
             return
 
           connection.Player.OnPlay (data) =>
-            if data?.data?.item?
-              @_parseItem(data.data.item)
-            env.logger.debug 'Kodi Playing'
+            @base.debug 'Kodi Playing'
             @_setState 'play'
+            @_updatePlayer()
+              .catch (error) =>
+                @base.error "Unable to update player", error
             return
-      @_updateInfo()
-      @updateIntervalTimerId = setInterval =>
-        @_updateInfo()
-      , 60000
+        .catch (error) =>
+          @base.error "Unable to register update handlers", error
 
+      @_updateInfo()
       super()
 
     destroy: () ->
-      clearInterval @updateIntervalTimerId if @updateIntervalTimerId?
+      @base.cancelUpdate()
       super()
 
     getType: () -> Promise.resolve(@_type)
+
     play: () ->
-      @_connectionProvider.getConnection().then (connection) =>
+      @_connectionProvider.getConnection()
+      .then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
             connection.Player.PlayPause({"playerid":players[0].playerid, "play":true})
+      .catch (error) =>
+        @base.error "Unable to play", error
+
     pause: () ->
-      @_connectionProvider.getConnection().then (connection) =>
+      @_connectionProvider.getConnection()
+      .then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
             connection.Player.PlayPause({"playerid":players[0].playerid, "play":false})
+      .catch (error) =>
+        @base.error "Unable to pause", error
+
+
     stop: () ->
-      @_connectionProvider.getConnection().then (connection) =>
+      @_connectionProvider.getConnection()
+      .then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
             connection.Player.Stop({"playerid":players[0].playerid})
+      .catch (error) =>
+        @base.error "Unable to stop", error
+
     previous: () ->
-      @_connectionProvider.getConnection().then (connection) =>
+      @_connectionProvider.getConnection()
+      .then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
             connection.Player.GoTo({"playerid":players[0].playerid,"to":"previous"})
+      .catch (error) =>
+        @base.error "Unable to select previous item", error
+
     next: () ->
-      @_connectionProvider.getConnection().then (connection) =>
+      @_connectionProvider.getConnection()
+      .then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
             connection.Player.GoTo({"playerid":players[0].playerid,"to":"next"})
-    setVolume: (volume) -> env.logger.debug 'setVolume not implemented'
+      .catch (error) =>
+        @base.error "Unable to select next item", error
+
+    setVolume: (volume) ->
+      @base.info 'setVolume not implemented'
 
     executeOpenCommand: (command) =>
-      env.logger.debug command
+      @base.debug "Command", command
 
-      @_connectionProvider.getConnection().then (connection) =>
+      @_connectionProvider.getConnection()
+      .then (connection) =>
         connection.Player.Open({
           item: { file : command}
           })
+      .catch (error) =>
+        @base.error "Unable to execute open command", error
 
     showToast: (message, icon, duration) =>
       opts = {title: 'Pimatic', 'message': message}
@@ -194,29 +214,68 @@ module.exports = (env) ->
       if duration?
         opts['displaytime'] = parseInt(duration, 10)
 
-      @_connectionProvider.getConnection().then (connection) =>
+      @_connectionProvider.getConnection()
+      .then (connection) =>
         connection.GUI.ShowNotification(opts)
+      .catch (error) =>
+        @base.error "Unable to send notification", error
 
-    _updateInfo: -> Promise.all([@_updatePlayer()])
+    _updateInfo: ->
+      @_updatePlayerStatus()
+      @_updatePlayer()
+        .catch (error) =>
+          @base.error "Unable to update player", error
+        .finally () =>
+          @base.scheduleUpdate @_updateInfo, @interval
+      return
 
     _setType: (type) ->
       if @_type isnt type
         @_type = type
         @emit 'type', type
 
+    _updatePlayerStatus: () ->
+      @base.debug '_updatePlayerStatus'
+      @_connectionProvider.getConnection()
+      .then (connection) =>
+        connection.Player.GetActivePlayers()
+        .then (players) =>
+          if players.length > 0
+            @base.debug "Found #{players.length} player(s)"
+            connection.Player.GetProperties(
+              {"playerid":players[0].playerid, "properties":["speed"]}
+            ).then (data) =>
+              @base.debug "Player.GetProperties", util.inspect data
+              if data.speed? and data.speed > 0
+                @base.debug 'Kodi Playing'
+                @_setState 'play'
+          else
+            @base.debug 'Kodi Stopped'
+            @_setState 'stop'
+            @emit 'state', @_state
+            return Promise.resolve()
+      .catch (error) =>
+        @base.error "Unable to update player status", error
+        return Promise.resolve()
+
     _updatePlayer: () ->
-      env.logger.debug '_updatePlayer'
+      @base.debug '_updatePlayer'
       @_connectionProvider.getConnection().then (connection) =>
         connection.Player.GetActivePlayers().then (players) =>
           if players.length > 0
+            @base.debug "Found #{players.length} player(s)"
             connection.Player.GetItem(
-              {"playerid":players[0].playerid,"properties":["title","artist"]}
+              {"playerid":players[0].playerid, "properties":["title", "artist"]}
             ).then (data) =>
-              env.logger.debug data
+              @base.debug "Player.GetItem", util.inspect data
               info = data.item
               @_setType(info.type)
               @_setCurrentTitle(
-                if info.title? then info.title else if info.label? then info.label else ""
+                if info.title? and info.title isnt ''
+                  info.title
+                else if info.label?
+                  info.label
+                else ''
               )
               @_setCurrentArtist(if info.artist? then info.artist else "")
           else
@@ -224,29 +283,21 @@ module.exports = (env) ->
             @_setCurrentTitle ''
 
     _sendCommandAction: (action) ->
-      @kodi.input.ExecuteAction action
-
-    _parseItem: (itm) ->
-#      if itm?
-#        artist = itm.artist?[0] ? itm.artist
-#        title = itm.title
-#        type = itm.type ? ''
-#        @_setType type
-#        env.logger.debug title
-#
-#        if type == 'song' || (title? && artist?)
-#          @_setCurrentTitle(if title? then title else "")
-#          @_setCurrentArtist(if artist? then artist else "")
-
-      @_updateInfo()
+      @base.debug '_sendCommandAction'
+      @_connectionProvider.getConnection()
+      .then (connection) =>
+        connection.Input.ExecuteAction(action)
+          .then (result) =>
+            @base.debug "Result:", result
+      .catch (error) =>
+        @base.error "Unable to update player status", error
+      return
 
   class KodiExecuteOpenActionProvider extends env.actions.ActionProvider
     constructor: (@framework,@config) ->
-    # ### executeAction()
-    ###
-    This function handles action in the form of `execute "some string"`
+      @debug = kodiPlugin.config.debug ? false
+      @base = commons.base @, "KodiExecuteOpenActionProvider"
 
-    ###
     parseAction: (input, context) =>
       retVar = null
 
@@ -266,7 +317,7 @@ module.exports = (env) ->
 
       m = M(input, context)
         .match('execute Open Command ')
-        .match(commandNames, (m,s) -> state = s.trim();)
+        .match(commandNames, (m,s) -> state = s.trim())
         .match(' on ')
         .matchDevice(kodiPlayers, onDeviceMatch)
 
@@ -277,14 +328,16 @@ module.exports = (env) ->
         return {
           token: match
           nextInput: input.substring(match.length)
-          actionHandler: new KodiExecuteOpenActionHandler(device,@config,state)
+          actionHandler: new KodiExecuteOpenActionHandler(device, @config, state)
         }
       else
         return null
 
   class KodiExecuteOpenActionHandler extends env.actions.ActionHandler
 
-    constructor: (@device,@config,@name) -> #nop
+    constructor: (@device, @config, @name) ->
+      @debug = kodiPlugin.config.debug ? false
+      @base = commons.base @, "KodiExecuteOpenActionHandler"
 
     executeAction: (simulate) =>
       if simulate
@@ -293,7 +346,7 @@ module.exports = (env) ->
             return Promise.resolve __("would execute %s", command.command)
       else
         for command in @config.customOpenCommands
-          env.logger.debug "checking for (1): #{command.name} == #{@name}"
+          @base.debug "checking for (1): #{command.name} == #{@name}"
           if command.name is @name
             return @device.executeOpenCommand(
               command.command).then( => __("executed %s", @device.name)
@@ -301,6 +354,8 @@ module.exports = (env) ->
 
   class PlayingPredicateProvider extends env.predicates.PredicateProvider
     constructor: (@framework) ->
+      @debug = kodiPlugin.config.debug ? false
+      @base = commons.base @, "PlayingPredicateProvider"
 
     parsePredicate: (input, context) ->
       kodiDevices = _(@framework.deviceManager.devices).values()
@@ -341,35 +396,35 @@ module.exports = (env) ->
   class PlayingPredicateHandler extends env.predicates.PredicateHandler
 
     constructor: (@device, @state) ->
+      @debug = kodiPlugin.config.debug ? false
+      @base = commons.base @, "PlayingPredicateHandler"
+      @dependOnDevice(@device)
 
     setup: ->
       @playingListener = (p) =>
-        env.logger.debug "checking for (2): #{@state} == #{p}"
+        @base.debug "checking whether current state #{p} matches #{@state}"
+        if @state is p or (@state is 'not play' and p isnt 'play')
+          @emit 'change', true
 
-        if (@state.trim() is p.trim())
-          @emit 'change', (@state.trim() is p.trim())
-        else if @state is "not play" and (p.trim() isnt "play")
-          @emit 'change', (p.trim() isnt "play")
       @device.on 'state', @playingListener
       super()
+
     getValue: ->
       return @device.getUpdatedAttributeValue('state').then(
-        (p) => #(if (@state.trim() is p.trim()) then not p else p)
-          if (@state.trim() is p.trim())
-            return (@state.trim() is p.trim())
-          else if @state is "not play" and (p.trim() isnt "play")
-            return (p.trim() isnt "play")
+        (p) =>
+          @state is p or (@state is 'not play' and p isnt 'play')
       )
+
     destroy: ->
-      @device.removeListener "state", @playingListener
+      @device.removeListener 'state', @playingListener
       super()
+
     getType: -> 'state'
 
   class KodiShowToastActionProvider extends env.actions.ActionProvider
     constructor: (@framework, @config) ->
-    ###
-    This function handles action in the form of show Toast "message"`
-    ###
+      @debug = kodiPlugin.config.debug ? false
+      @base = commons.base @, "KodiShowToastActionProvider"
 
     parseAction: (input, context) =>
       retVar = null
@@ -418,14 +473,16 @@ module.exports = (env) ->
         return null
 
   class KodiShowToastActionHandler extends env.actions.ActionHandler
-    constructor: (@framework,@device,@config,@messageTokens,@iconTokens,@durationTokens,@durationUnit) -> # nop
+    constructor: (@framework,@device,@config,@messageTokens,@iconTokens,@durationTokens,@durationUnit) ->
+      @debug = kodiPlugin.config.debug ? false
+      @base = commons.base @, "KodiShowToastActionHandler"
 
     executeAction: (simulate) =>
       toastPromise = (message, icon, duration) =>
         if simulate
           return Promise.resolve __("would show toast %s with icon %s for %s", message, icon, duration)
         else
-          env.logger.debug "Sending toast %s with icon %s for %s on %s" % message, icon, duration, @device
+          @base.debug "Sending toast %s with icon %s for %s on %s" % message, icon, duration, @device
           return @device.showToast(message, icon, duration).then( => __("show toast %s with icon %s for %s on %s", message, icon, duration, @device.name))
 
       timeLookup = Promise.resolve(null)
@@ -445,7 +502,5 @@ module.exports = (env) ->
         )
       )
 
-  # Create a instance of Kodiplugin
   kodiPlugin = new KodiPlugin
-  # and return it to the framework.
   return kodiPlugin

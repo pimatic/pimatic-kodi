@@ -6,10 +6,12 @@ module.exports ={
     extensions: ["xLink"]
     properties:
       port:
-        description: "The port of Kodi/XBMC"
-        type: "number"
+        description: "The port for Kodi RPC (Default: 9090)"
+        type: "integer"
+        default: 9090
       host:
-        description: "The address of Kodi/XBMC"
+        description: "The address of the Kodi host"
         type: "string"
+        default: "localhost"
   }
 }

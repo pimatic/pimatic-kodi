@@ -3,27 +3,51 @@
   "description": "Pimatic plugin for XBMC/Kodi",
   "author": "Fjux <Fjux>",
   "main": "kodi-plugin",
+  "version": "0.1.8",
+  "license": "GPL-2.0",
+  "homepage": "https://github.com/pimatic/pimatic-kodi",
+  "contributors": [
+    {
+      "name": "Wiebe Nieuwenhuis",
+      "email": "info@wiebenieuwenhuis.nl"
+    },
+    {
+      "name": "Chris van Marle",
+      "email": "qistoph@gmail.com"
+    },
+    {
+      "name": "Oliver Schneider",
+      "email": "oliverschneider89+sweetpi@gmail.com"
+    },
+    {
+      "name": "Marcus Wittig",
+      "email": "WittigMarcus@gmail.com"
+    }
+  ],
   "files": [
     "kodi-plugin.coffee",
     "README.md",
+    "LICENSE",
     "kodi-plugin-config-schema.coffee",
     "device-config-schema.coffee"
   ],
-  "version": "0.1.8",
-  "homepage": "https://github.com/pimatic/pimatic-kodi",
   "repository": {
     "type": "git",
     "url": "git://github.com/pimatic/pimatic-kodi.git"
   },
+  "bugs": {
+    "url": "https://github.com/pimatic/pimatic-kodi/issues"
+  },
   "configSchema": "kodi-plugin-config-schema.coffee",
   "dependencies": {
-    "kodi-ws": "^2.4.3"
+    "kodi-ws": "^2.4.3",
+    "pimatic-plugin-commons": "^0.9.5"
   },
   "peerDependencies": {
     "pimatic": ">=0.8.0 <1.0.0"
   },
   "engines": {
-    "node": ">0.8.x",
+    "node": ">= 4",
     "npm": ">1.1.x"
   }
 }

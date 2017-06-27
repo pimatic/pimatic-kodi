@@ -4,18 +4,10 @@ module.exports = {
   title: "Kodi plugin config options"
   type: "object"
   properties:
-    host:
-      description: "The IP of Kodi/XBMC"
-      type: "string"
-      default: "192.168.178.110"
-    port:
-      description: "The port for Kodi/XMBC RPC (Default: 9090)"
-      type: "integer"
-      default: 9090
     debug:
       description: "Log information for debugging, including received messages"
       type: "boolean"
-      default: true
+      default: false
     customOpenCommands:
       description: "Custom Player.Open commands"
       type: "array"
