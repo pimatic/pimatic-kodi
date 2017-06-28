@@ -71,11 +71,11 @@ module.exports = (env) ->
             @connection = newConnection
             @emit 'newConnection'
 
-            @connection.on "error", (() =>
+            @connection.once "error", (() =>
               @connected = false
               @connection = null
             )
-            @connection.on "close", (() =>
+            @connection.once "close", (() =>
               @connected = false
               @connection = null
             )
@@ -130,11 +130,13 @@ module.exports = (env) ->
             @base.debug 'Kodi Playing'
             @_setState 'play'
             @_updatePlayer()
-              .catch (error) =>
-                @base.error "Unable to update player", error
+            .catch (error) =>
+              @base.rejectWithErrorString null, error, "Unable to update player"
             return
+
         .catch (error) =>
           @base.error "Unable to register update handlers", error
+        return
 
       @_updateInfo()
       super()
@@ -152,7 +154,7 @@ module.exports = (env) ->
           if players.length > 0
             connection.Player.PlayPause({"playerid":players[0].playerid, "play":true})
       .catch (error) =>
-        @base.error "Unable to play", error
+        @base.rejectWithErrorString Promise.reject, error, "Unable to play"
 
     pause: () ->
       @_connectionProvider.getConnection()
@@ -161,7 +163,7 @@ module.exports = (env) ->
           if players.length > 0
             connection.Player.PlayPause({"playerid":players[0].playerid, "play":false})
       .catch (error) =>
-        @base.error "Unable to pause", error
+        @base.rejectWithErrorString Promise.reject, error, "Unable to pause"
 
 
     stop: () ->
@@ -171,7 +173,7 @@ module.exports = (env) ->
           if players.length > 0
             connection.Player.Stop({"playerid":players[0].playerid})
       .catch (error) =>
-        @base.error "Unable to stop", error
+        @base.rejectWithErrorString Promise.reject, error, "Unable to stop"
 
     previous: () ->
       @_connectionProvider.getConnection()
@@ -180,7 +182,7 @@ module.exports = (env) ->
           if players.length > 0
             connection.Player.GoTo({"playerid":players[0].playerid,"to":"previous"})
       .catch (error) =>
-        @base.error "Unable to select previous item", error
+        @base.rejectWithErrorString Promise.reject, error, "Unable to select previous item"
 
     next: () ->
       @_connectionProvider.getConnection()
@@ -189,7 +191,7 @@ module.exports = (env) ->
           if players.length > 0
             connection.Player.GoTo({"playerid":players[0].playerid,"to":"next"})
       .catch (error) =>
-        @base.error "Unable to select next item", error
+        @base.rejectWithErrorString Promise.reject, error, "Unable to select next item"
 
     setVolume: (volume) ->
       @base.info 'setVolume not implemented'
@@ -203,7 +205,7 @@ module.exports = (env) ->
           item: { file : command}
           })
       .catch (error) =>
-        @base.error "Unable to execute open command", error
+        @base.rejectWithErrorString Promise.reject, error, "Unable to execute open command"
 
     showToast: (message, icon, duration) =>
       opts = {title: 'Pimatic', 'message': message}
@@ -218,16 +220,14 @@ module.exports = (env) ->
       .then (connection) =>
         connection.GUI.ShowNotification(opts)
       .catch (error) =>
-        @base.error "Unable to send notification", error
+        @base.rejectWithErrorString Promise.reject, error, "Unable to send notification"
 
     _updateInfo: ->
-      @_updatePlayerStatus()
-      @_updatePlayer()
-        .catch (error) =>
-          @base.error "Unable to update player", error
-        .finally () =>
-          @base.scheduleUpdate @_updateInfo, @interval
-      return
+      Promise.all([@_updatePlayerStatus(), @_updatePlayer()])
+      .catch (error) =>
+        @base.rejectWithErrorString null, error, "Unable to update player"
+      .finally () =>
+        @base.scheduleUpdate @_updateInfo, @interval
 
     _setType: (type) ->
       if @_type isnt type
@@ -254,9 +254,6 @@ module.exports = (env) ->
             @_setState 'stop'
             @emit 'state', @_state
             return Promise.resolve()
-      .catch (error) =>
-        @base.error "Unable to update player status", error
-        return Promise.resolve()
 
     _updatePlayer: () ->
       @base.debug '_updatePlayer'
