@@ -3,7 +3,7 @@
   "description": "Pimatic plugin for XBMC/Kodi",
   "author": "Fjux <Fjux>",
   "main": "kodi-plugin",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "license": "GPL-2.0",
   "homepage": "https://github.com/pimatic/pimatic-kodi",
   "contributors": [
