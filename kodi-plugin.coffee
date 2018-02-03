@@ -325,14 +325,14 @@ module.exports = (env) ->
         return {
           token: match
           nextInput: input.substring(match.length)
-          actionHandler: new KodiExecuteOpenActionHandler(device, @config, state)
+          actionHandler: new KodiExecuteOpenActionHandler(@framework, device, @config, state)
         }
       else
         return null
 
   class KodiExecuteOpenActionHandler extends env.actions.ActionHandler
 
-    constructor: (@device, @config, @name) ->
+    constructor: (@framework, @device, @config, @name) ->
       @debug = kodiPlugin.config.debug ? false
       @base = commons.base @, "KodiExecuteOpenActionHandler"
 
@@ -345,8 +345,19 @@ module.exports = (env) ->
         for command in @config.customOpenCommands
           @base.debug "checking for (1): #{command.name} == #{@name}"
           if command.name is @name
-            return @device.executeOpenCommand(
-              command.command).then( => __("executed %s", @device.name)
+          
+            {variables, functions} = @framework.variableManager.getVariablesAndFunctions()
+            input = __('"%s"', command.command)
+            context = M.createParseContext(variables, functions)
+            match = null
+            m = M(input, context)
+            parseCommand = (m, tokens) => match = tokens 
+            m.matchStringWithVars(parseCommand)
+            
+            return @framework.variableManager.evaluateStringExpression(match).then( (cmd) =>
+              @device.executeOpenCommand(cmd).then( => 
+                __("executed %s on %s", command.name, @device.name)
+              )
             )
 
   class PlayingPredicateProvider extends env.predicates.PredicateProvider
