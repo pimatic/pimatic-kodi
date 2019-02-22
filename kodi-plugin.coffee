@@ -274,7 +274,7 @@ module.exports = (env) ->
                   info.label
                 else ''
               )
-              @_setCurrentArtist(if info.artist.lenght > 0 then info.artist[0] else "")
+              @_setCurrentArtist(if info.artist.length > 0 then info.artist[0] else "")
           else
             @_setCurrentArtist ''
             @_setCurrentTitle ''
