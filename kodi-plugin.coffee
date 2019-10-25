@@ -29,7 +29,7 @@ module.exports = (env) ->
 
       @framework.deviceManager.registerDeviceClass("KodiPlayer", {
         configDef: deviceConfigDef.KodiPlayer,
-        createCallback: (config) => new KodiPlayer(config)
+        createCallback: (config, lastState) => new KodiPlayer(config, @, lastState)
       })
 
       @framework.ruleManager.addActionProvider(
@@ -90,14 +90,14 @@ module.exports = (env) ->
     _type: ""
     _connectionProvider : null
 
-    constructor: (@config) ->
+    constructor: (@config, @plugin, lastState) ->
       @name = @config.name
       @id = @config.id
-      @debug = kodiPlugin.config.debug ? false
+      @debug = @plugin.config.debug ? false
       @base = commons.base @, @config.class
-      @interval = 60000
+      @interval = 10000
 
-      @_state = 'stop'
+      @_state = lastState?.state?.value
 
       @actions = _.cloneDeep @actions
       @attributes =  _.cloneDeep @attributes
@@ -225,7 +225,11 @@ module.exports = (env) ->
     _updateInfo: ->
       Promise.all([@_updatePlayerStatus(), @_updatePlayer()])
       .catch (error) =>
-        @base.rejectWithErrorString null, error, "Unable to update player"
+        
+        # Changed code to prevent log flooding with EHOSTUNREACH errors when mediaplayer is turned off
+        
+        #@base.rejectWithErrorString null, error, "Unable to update player" # OLD
+        Promise.resolve() # NEW
       .finally () =>
         @base.scheduleUpdate @_updateInfo, @interval
 
@@ -252,7 +256,7 @@ module.exports = (env) ->
           else
             @base.debug 'Kodi Stopped'
             @_setState 'stop'
-            @emit 'state', @_state
+            #@emit 'state', @_state
             return Promise.resolve()
 
     _updatePlayer: () ->
@@ -274,7 +278,7 @@ module.exports = (env) ->
                   info.label
                 else ''
               )
-              @_setCurrentArtist(if info.artist? then info.artist else "")
+              @_setCurrentArtist(if info.artist.length > 0 then info.artist[0] else "")
           else
             @_setCurrentArtist ''
             @_setCurrentTitle ''
@@ -325,14 +329,14 @@ module.exports = (env) ->
         return {
           token: match
           nextInput: input.substring(match.length)
-          actionHandler: new KodiExecuteOpenActionHandler(device, @config, state)
+          actionHandler: new KodiExecuteOpenActionHandler(@framework, device, @config, state)
         }
       else
         return null
 
   class KodiExecuteOpenActionHandler extends env.actions.ActionHandler
 
-    constructor: (@device, @config, @name) ->
+    constructor: (@framework, @device, @config, @name) ->
       @debug = kodiPlugin.config.debug ? false
       @base = commons.base @, "KodiExecuteOpenActionHandler"
 
@@ -345,8 +349,19 @@ module.exports = (env) ->
         for command in @config.customOpenCommands
           @base.debug "checking for (1): #{command.name} == #{@name}"
           if command.name is @name
-            return @device.executeOpenCommand(
-              command.command).then( => __("executed %s", @device.name)
+          
+            {variables, functions} = @framework.variableManager.getVariablesAndFunctions()
+            input = __('"%s"', command.command)
+            context = M.createParseContext(variables, functions)
+            match = null
+            m = M(input, context)
+            parseCommand = (m, tokens) => match = tokens 
+            m.matchStringWithVars(parseCommand)
+            
+            return @framework.variableManager.evaluateStringExpression(match).then( (cmd) =>
+              @device.executeOpenCommand(cmd).then( => 
+                __("executed %s on %s", command.name, @device.name)
+              )
             )
 
   class PlayingPredicateProvider extends env.predicates.PredicateProvider
