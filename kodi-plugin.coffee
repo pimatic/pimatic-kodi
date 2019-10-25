@@ -29,7 +29,7 @@ module.exports = (env) ->
 
       @framework.deviceManager.registerDeviceClass("KodiPlayer", {
         configDef: deviceConfigDef.KodiPlayer,
-        createCallback: (config) => new KodiPlayer(config)
+        createCallback: (config, lastState) => new KodiPlayer(config, @, lastState)
       })
 
       @framework.ruleManager.addActionProvider(
@@ -90,14 +90,14 @@ module.exports = (env) ->
     _type: ""
     _connectionProvider : null
 
-    constructor: (@config) ->
+    constructor: (@config, @plugin, lastState) ->
       @name = @config.name
       @id = @config.id
-      @debug = kodiPlugin.config.debug ? false
+      @debug = @plugin.config.debug ? false
       @base = commons.base @, @config.class
-      @interval = 60000
+      @interval = 10000
 
-      @_state = 'stop'
+      @_state = lastState?.state?.value
 
       @actions = _.cloneDeep @actions
       @attributes =  _.cloneDeep @attributes
@@ -225,7 +225,11 @@ module.exports = (env) ->
     _updateInfo: ->
       Promise.all([@_updatePlayerStatus(), @_updatePlayer()])
       .catch (error) =>
-        @base.rejectWithErrorString null, error, "Unable to update player"
+        
+        # Changed code to prevent log flooding with EHOSTUNREACH errors when mediaplayer is turned off
+        
+        #@base.rejectWithErrorString null, error, "Unable to update player" # OLD
+        Promise.resolve() # NEW
       .finally () =>
         @base.scheduleUpdate @_updateInfo, @interval
 
@@ -252,7 +256,7 @@ module.exports = (env) ->
           else
             @base.debug 'Kodi Stopped'
             @_setState 'stop'
-            @emit 'state', @_state
+            #@emit 'state', @_state
             return Promise.resolve()
 
     _updatePlayer: () ->
